@@ -511,6 +511,12 @@ pub async fn handle_command(
             let pipeline = GlossaryPipeline::new(config, ai_model, ai_url)?;
             pipeline.process_file(file_path).await
         }
+        Command::Text {
+            text,
+            lang,
+            output,
+            filter,
+        } => handle_text(text, lang, output, filter).await,
         Command::Youtube {
             video_url,
             lang,
@@ -553,6 +559,60 @@ pub async fn handle_command(
         }
         Command::Filter { action } => handle_filter_action(action).await,
     }
+}
+
+async fn process_content(
+    content: String,
+    lang: Language,
+    output: String,
+    filter_file: String,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let config = PipelineConfig {
+        lang,
+        output,
+        filter_file,
+        interactive: false,
+        anki: None,
+    };
+    let pipeline = GlossaryPipeline::new(config, None, "http://localhost:11434".to_string())?;
+    pipeline.process_content(content).await
+}
+
+async fn handle_generate(
+    file_path: String,
+    lang: Language,
+    output: String,
+    filter_file: String,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let file_path = PathBuf::from(file_path);
+    if !file_path.exists() {
+        return Err("File does not exist".into());
+    }
+
+    let content = get_content_from_file(file_path).await?;
+    process_content(content, lang, output, filter_file).await
+}
+
+async fn handle_text(
+    text: String,
+    lang: Language,
+    output: String,
+    filter_file: String,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    process_content(text, lang, output, filter_file).await
+}
+
+async fn handle_youtube(
+    video_url: String,
+    lang: Language,
+    output: String,
+    filter_file: String,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    println!("Fetching transcript from YouTube video...");
+    let content = get_youtube_transcript(&video_url, lang).await?;
+    println!("Transcript fetched successfully!");
+
+    process_content(content, lang, output, filter_file).await
 }
 
 async fn handle_filter_action(

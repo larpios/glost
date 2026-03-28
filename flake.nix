@@ -41,6 +41,7 @@
           
           buildInputs = with pkgs; [
             yt-dlp
+            bzip2
           ];
         };
       }
